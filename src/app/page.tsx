@@ -47,6 +47,11 @@ export default function Page() {
 
     const res = await fetch("/api/recite/check", { method: "POST", body: form });
     const data = await res.json();
+    if (!res.ok) {
+      setError(`Ошибка проверки: ${data.error ?? "неизвестная"}`);
+      return;
+    }
+    setError(null);
     setResults(data.results);
     setScore(data.score);
   }
