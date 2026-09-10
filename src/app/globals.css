@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "Amiri";
+  src: url("https://fonts.gstatic.com/s/amiri/v27/J7aRnpd8CGxBHqUpvrIw74NL.woff2") format("woff2");
+  font-display: swap;
+}
