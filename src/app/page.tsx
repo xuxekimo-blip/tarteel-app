@@ -238,11 +238,12 @@ export default function Page() {
               ← К списку аятов
             </button>
             <AyahDisplay
-              surahNumber={ayah.surah_number}
-              ayahNumber={ayah.ayah_number}
-              arabicText={ayah.text_simple}
-              results={results}
-            />
+             surahNumber={ayah.surah_number}
+             surahName={selectedSurah.englishName}
+             ayahNumber={ayah.ayah_number}
+             arabicText={ayah.text_simple}
+            results={results}
+           />
             {checking && (
               <p className="text-center text-sm text-[#777777]">Проверяю...</p>
             )}
