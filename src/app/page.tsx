@@ -42,6 +42,7 @@ export default function Page() {
   const [results, setResults] = useState<WordResult[] | undefined>();
   const [score, setScore] = useState<number | null>(null);
   const [checkError, setCheckError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
   const [hifzMode, setHifzMode] = useState(true);
 
   const [session, setSession] = useState<SessionEntry[]>([]);
