@@ -31,6 +31,7 @@ export default function Page() {
 
   const [step, setStep] = useState<Step>("home");
   const [surahs, setSurahs] = useState<Surah[]>([]);
+  const [surahsError, setSurahsError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   const [selectedSurah, setSelectedSurah] = useState<Surah | null>(null);
@@ -65,9 +66,13 @@ export default function Page() {
 
   useEffect(() => {
     fetch("/api/surahs")
-      .then((r) => r.json())
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
+        return data;
+      })
       .then((data) => setSurahs(data.surahs ?? []))
-      .catch(() => {});
+      .catch((err) => setSurahsError(String(err.message ?? err)));
   }, []);
 
   async function openSurah(s: Surah) {
@@ -163,8 +168,13 @@ export default function Page() {
                 <span className="text-xs text-[#8A8474]">{s.numberOfAyahs} аятов</span>
               </button>
             ))}
-            {surahs.length === 0 && (
+            {surahs.length === 0 && !surahsError && (
               <p className="text-center text-sm text-[#777777]">Загружаю список сур...</p>
+            )}
+            {surahsError && (
+              <p className="text-center text-sm text-[#B5502B]">
+                Не удалось загрузить список: {surahsError}
+              </p>
             )}
           </div>
         </div>
