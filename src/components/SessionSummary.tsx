@@ -13,16 +13,21 @@ export function SessionSummary({
   entries,
   onRestart,
   onHome,
+  onRepeatErrors,
 }: {
   surahName: string;
   entries: SessionEntry[];
   onRestart: () => void;
   onHome: () => void;
+  onRepeatErrors: (ayahNumbers: number[]) => void;
 }) {
   const avg =
     entries.length === 0
       ? 0
-      : entries.reduce((sum, e) => sum + e.score, 0) / entries.length;
+      : entries.reduce(
+          (sum, e) => sum + e.score,
+          0
+        ) / entries.length;
 
   const totalCorrect = entries.reduce(
     (sum, e) => sum + e.correctWords,
@@ -42,6 +47,10 @@ export function SessionSummary({
   const worst = [...entries]
     .sort((a, b) => a.score - b.score)
     .slice(0, 5);
+
+  const weakAyahs = entries
+    .filter((e) => e.score < 0.75)
+    .sort((a, b) => a.score - b.score);
 
   function getScoreLabel(score: number) {
     if (score >= 0.9) return "Отлично";
@@ -82,6 +91,7 @@ export function SessionSummary({
           <div className="text-xl font-semibold text-[#2F6F4E]">
             {totalCorrect}
           </div>
+
           <div className="mt-1 text-xs text-[#777777]">
             Правильно
           </div>
@@ -91,6 +101,7 @@ export function SessionSummary({
           <div className="text-xl font-semibold text-[#B5502B]">
             {totalMismatch}
           </div>
+
           <div className="mt-1 text-xs text-[#777777]">
             Ошибки
           </div>
@@ -100,6 +111,7 @@ export function SessionSummary({
           <div className="text-xl font-semibold text-[#A3A3A3]">
             {totalMissing}
           </div>
+
           <div className="mt-1 text-xs text-[#777777]">
             Пропущено
           </div>
@@ -143,6 +155,19 @@ export function SessionSummary({
             ))}
           </div>
         </div>
+      )}
+
+      {weakAyahs.length > 0 && (
+        <button
+          onClick={() =>
+            onRepeatErrors(
+              weakAyahs.map((e) => e.ayahNumber)
+            )
+          }
+          className="w-full rounded-2xl border border-[#D9D2BE] bg-[#EFEBDD] py-3.5 text-center text-sm font-medium text-[#111111]"
+        >
+          Повторить ошибки · {weakAyahs.length}
+        </button>
       )}
 
       <div className="space-y-3 pt-1">
