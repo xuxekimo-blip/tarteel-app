@@ -258,6 +258,32 @@ export default function Page() {
       {step === "recite" && ayah && selectedSurah && (
         <div className="flex flex-1 flex-col justify-between space-y-6">
           <div className="space-y-6">
+            <div className="flex items-center justify-between rounded-2xl border border-[#E4E0D6] bg-[#FBFAF6] px-4 py-3">
+  <div>
+    <div className="text-sm font-medium text-[#111111]">
+      Режим запоминания
+    </div>
+    <div className="mt-1 text-xs text-[#777777]">
+      {hifzMode
+        ? "Текст скрыт — читайте по памяти"
+        : "Текст аята отображается"}
+    </div>
+  </div>
+
+  <button
+    onClick={() => setHifzMode((prev) => !prev)}
+    className={`relative h-7 w-12 rounded-full transition-colors ${
+      hifzMode ? "bg-[#2F6F4E]" : "bg-[#D9D2BE]"
+    }`}
+    aria-label="Переключить режим запоминания"
+  >
+    <span
+      className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+        hifzMode ? "translate-x-6" : "translate-x-1"
+      }`}
+    />
+  </button>
+</div>
             <button onClick={() => setStep("surah")} className="text-sm text-[#777777]">
               ← К списку аятов
             </button>
