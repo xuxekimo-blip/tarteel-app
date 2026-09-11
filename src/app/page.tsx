@@ -266,8 +266,9 @@ export default function Page() {
              surahName={selectedSurah.englishName}
              ayahNumber={ayah.ayah_number}
              arabicText={ayah.text_simple}
-            results={results}
-           />
+             results={results}
+             hidden={hifzMode && results === undefined}
+            />
             {checking && (
               <p className="text-center text-sm text-[#777777]">Проверяю...</p>
             )}
