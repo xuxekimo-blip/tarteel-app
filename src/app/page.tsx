@@ -58,15 +58,11 @@ export default function Page() {
   const [ayahListLoading, setAyahListLoading] = useState(false);
 
   const [ayah, setAyah] = useState<Ayah | null>(null);
-
   const [results, setResults] =
     useState<WordResult[] | undefined>();
-
   const [score, setScore] = useState<number | null>(null);
-
   const [checkError, setCheckError] =
     useState<string | null>(null);
-
   const [checking, setChecking] = useState(false);
 
   const [hifzMode, setHifzMode] = useState(true);
@@ -79,18 +75,13 @@ export default function Page() {
     to: number;
   } | null>(null);
 
-  // Очередь аятов для повторения после ошибок.
   const [repeatQueue, setRepeatQueue] =
     useState<number[]>([]);
-
   const [repeatIndex, setRepeatIndex] = useState(0);
 
   const [session, setSession] = useState<SessionEntry[]>([]);
 
-  // --------------------------------------------------
   // Telegram авторизация
-  // --------------------------------------------------
-
   useEffect(() => {
     const tg = (window as any)?.Telegram?.WebApp;
 
@@ -123,16 +114,11 @@ export default function Page() {
         setUserId(data.userId);
       })
       .catch(() => {
-        setAuthError(
-          "Не удалось авторизоваться."
-        );
+        setAuthError("Не удалось авторизоваться.");
       });
   }, []);
 
-  // --------------------------------------------------
-  // Загрузка прогресса пользователя
-  // --------------------------------------------------
-
+  // Загрузка прогресса
   useEffect(() => {
     if (!userId) return;
 
@@ -169,20 +155,14 @@ export default function Page() {
         });
       })
       .catch((err) => {
-        console.error(
-          "Progress error:",
-          err
-        );
+        console.error("Progress error:", err);
       })
       .finally(() => {
         setProgressLoading(false);
       });
   }, [userId]);
 
-  // --------------------------------------------------
-  // Загрузка списка сур
-  // --------------------------------------------------
-
+  // Загрузка сур
   useEffect(() => {
     fetch("/api/surahs")
       .then(async (r) => {
@@ -206,10 +186,7 @@ export default function Page() {
       });
   }, []);
 
-  // --------------------------------------------------
   // Открыть суру
-  // --------------------------------------------------
-
   async function openSurah(s: Surah) {
     setSelectedSurah(s);
     setSession([]);
@@ -238,13 +215,8 @@ export default function Page() {
     setAyahListLoading(false);
   }
 
-  // --------------------------------------------------
   // Открыть аят
-  // --------------------------------------------------
-
-  async function openAyah(
-    ayahNumber: number
-  ) {
+  async function openAyah(ayahNumber: number) {
     if (!selectedSurah) return;
 
     setResults(undefined);
@@ -263,10 +235,7 @@ export default function Page() {
     setStep("recite");
   }
 
-  // --------------------------------------------------
   // Начать Хифз
-  // --------------------------------------------------
-
   function startHifz() {
     if (!selectedSurah) return;
 
@@ -303,10 +272,7 @@ export default function Page() {
     openAyah(from);
   }
 
-  // --------------------------------------------------
   // Повторить ошибки
-  // --------------------------------------------------
-
   function startErrorReview(
     ayahNumbers: number[]
   ) {
@@ -326,16 +292,12 @@ export default function Page() {
     openAyah(queue[0]);
   }
 
-  // --------------------------------------------------
   // Следующий аят
-  // --------------------------------------------------
-
   function nextAyahNumber(): number | null {
     if (!ayah || !selectedSurah) {
       return null;
     }
 
-    // Повторение ошибок
     if (repeatQueue.length > 0) {
       const nextIndex =
         repeatIndex + 1;
@@ -353,24 +315,19 @@ export default function Page() {
     const next =
       ayah.ayah_number + 1;
 
-    // Хифз с выбранным диапазоном
     if (hifzRange) {
       return next <= hifzRange.to
         ? next
         : null;
     }
 
-    // Обычное чтение
     return next <=
       selectedSurah.numberOfAyahs
       ? next
       : null;
   }
 
-  // --------------------------------------------------
   // Перейти к следующему аяту
-  // --------------------------------------------------
-
   async function handleNextAyah() {
     const next =
       nextAyahNumber();
@@ -389,10 +346,7 @@ export default function Page() {
     await openAyah(next);
   }
 
-  // --------------------------------------------------
   // Проверка чтения
-  // --------------------------------------------------
-
   async function handleRecording(
     blob: Blob
   ) {
@@ -400,19 +354,10 @@ export default function Page() {
 
     setChecking(true);
 
-    const form =
-      new FormData();
+    const form = new FormData();
 
-    form.append(
-      "audio",
-      blob
-    );
-
-    form.append(
-      "userId",
-      userId
-    );
-
+    form.append("audio", blob);
+    form.append("userId", userId);
     form.append(
       "ayahId",
       String(ayah.id)
@@ -426,8 +371,7 @@ export default function Page() {
       }
     );
 
-    const data =
-      await res.json();
+    const data = await res.json();
 
     setChecking(false);
 
@@ -442,14 +386,8 @@ export default function Page() {
     }
 
     setCheckError(null);
-
-    setResults(
-      data.results
-    );
-
-    setScore(
-      data.score
-    );
+    setResults(data.results);
+    setScore(data.score);
 
     setSession((prev) => {
       const withoutThis =
@@ -468,15 +406,13 @@ export default function Page() {
       const mismatchWords =
         (data.results ?? []).filter(
           (r: WordResult) =>
-            r.status ===
-            "mismatch"
+            r.status === "mismatch"
         ).length;
 
       const missingWords =
         (data.results ?? []).filter(
           (r: WordResult) =>
-            r.status ===
-            "missing"
+            r.status === "missing"
         ).length;
 
       return [
@@ -484,62 +420,44 @@ export default function Page() {
         {
           ayahNumber:
             ayah.ayah_number,
-
-          score:
-            data.score,
-
+          score: data.score,
           correctWords,
-
           mismatchWords,
-
           missingWords,
         },
       ];
     });
 
-    // Обновляем прогресс сразу после проверки
-    if (userId) {
-      fetch(
-        `/api/progress?userId=${encodeURIComponent(
-          userId
-        )}`
-      )
-        .then((r) => r.json())
-        .then((progressData) => {
-          setProgress({
-            ayahsChecked: Number(
-              progressData.ayahsChecked ??
-                0
-            ),
-
-            totalAttempts: Number(
-              progressData.totalAttempts ??
-                0
-            ),
-
-            averageScore: Number(
-              progressData.averageScore ??
-                0
-            ),
-
-            bestScore: Number(
-              progressData.bestScore ??
-                0
-            ),
-          });
-        })
-        .catch((err) => {
-          console.error(
-            "Progress refresh error:",
-            err
-          );
+    // Обновить карточку прогресса
+    fetch(
+      `/api/progress?userId=${encodeURIComponent(
+        userId
+      )}`
+    )
+      .then((r) => r.json())
+      .then((progressData) => {
+        setProgress({
+          ayahsChecked: Number(
+            progressData.ayahsChecked ?? 0
+          ),
+          totalAttempts: Number(
+            progressData.totalAttempts ?? 0
+          ),
+          averageScore: Number(
+            progressData.averageScore ?? 0
+          ),
+          bestScore: Number(
+            progressData.bestScore ?? 0
+          ),
         });
-    }
+      })
+      .catch((err) => {
+        console.error(
+          "Progress refresh error:",
+          err
+        );
+      });
   }
-
-  // --------------------------------------------------
-  // Поиск сур
-  // --------------------------------------------------
 
   const filteredSurahs =
     surahs.filter(
@@ -554,21 +472,16 @@ export default function Page() {
         )
     );
 
-  // --------------------------------------------------
-  // UI
-  // --------------------------------------------------
-
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col p-6">
+
       {authError && (
         <p className="mb-4 text-center text-sm text-[#B5502B]">
           {authError}
         </p>
       )}
 
-      {/* =========================
-          HOME
-      ========================= */}
+      {/* HOME */}
 
       {step === "home" && (
         <div className="space-y-5">
@@ -583,7 +496,7 @@ export default function Page() {
             </p>
           </div>
 
-          {/* ПРОГРЕСС */}
+          {/* PROGRESS */}
 
           {progressLoading ? (
             <div className="rounded-2xl border border-[#E4E0D6] bg-[#FBFAF6] p-5">
@@ -608,8 +521,7 @@ export default function Page() {
 
                 <div className="text-2xl font-semibold text-[#2F6F4E]">
                   {Math.round(
-                    progress.averageScore *
-                      100
+                    progress.averageScore * 100
                   )}
                   %
                 </div>
@@ -641,8 +553,7 @@ export default function Page() {
                 <div className="rounded-xl bg-[#EFEBDD] p-3 text-center">
                   <div className="text-lg font-semibold text-[#111111]">
                     {Math.round(
-                      progress.bestScore *
-                        100
+                      progress.bestScore * 100
                     )}
                     %
                   </div>
@@ -656,20 +567,18 @@ export default function Page() {
             </div>
           ) : null}
 
-          {/* ПОИСК */}
+          {/* SEARCH */}
 
           <input
             value={search}
             onChange={(e) =>
-              setSearch(
-                e.target.value
-              )
+              setSearch(e.target.value)
             }
             placeholder="Найти суру..."
             className="w-full rounded-xl border border-[#E4E0D6] bg-[#FBFAF6] px-4 py-3 text-sm outline-none"
           />
 
-          {/* СПИСОК СУР */}
+          {/* SURAHS */}
 
           <div className="space-y-1">
 
@@ -682,164 +591,9 @@ export default function Page() {
                   }
                   className="flex w-full items-center gap-3 rounded-xl border border-[#E4E0D6] bg-[#FBFAF6] px-4 py-3 text-left"
                 >
+
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EFEBDD] text-xs text-[#777777]">
                     {s.number}
                   </span>
 
-                  <span className="flex-1 text-sm text-[#111111]">
-                    {s.englishName}
-                  </span>
-
-                  <span className="text-xs text-[#8A8474]">
-                    {s.numberOfAyahs} аятов
-                  </span>
-                </button>
-              )
-            )}
-
-            {surahs.length === 0 &&
-              !surahsError && (
-                <p className="text-center text-sm text-[#777777]">
-                  Загружаю список сур...
-                </p>
-              )}
-
-            {surahsError && (
-              <p className="text-center text-sm text-[#B5502B]">
-                Не удалось загрузить список:{" "}
-                {surahsError}
-              </p>
-            )}
-
-          </div>
-        </div>
-      )}
-
-      {/* =========================
-          SURAH
-      ========================= */}
-
-      {step === "surah" &&
-        selectedSurah && (
-          <div className="space-y-4">
-
-            <button
-              onClick={() =>
-                setStep("home")
-              }
-              className="text-sm text-[#777777]"
-            >
-              ← Все суры
-            </button>
-
-            <h1 className="text-xl font-semibold text-[#111111]">
-              {selectedSurah.englishName}
-            </h1>
-
-            {/* HIFZ RANGE */}
-
-            <div className="rounded-2xl border border-[#E4E0D6] bg-[#FBFAF6] p-4">
-
-              <div className="text-sm font-medium text-[#111111]">
-                Режим Хифз
-              </div>
-
-              <div className="mt-1 text-xs text-[#777777]">
-                Выберите диапазон аятов для запоминания
-              </div>
-
-              <div className="mt-4 flex items-center gap-2">
-
-                <div className="flex-1">
-
-                  <label className="mb-1 block text-xs text-[#8A8474]">
-                    От
-                  </label>
-
-                  <select
-                    value={hifzFrom}
-                    onChange={(e) => {
-                      const value =
-                        Number(
-                          e.target.value
-                        );
-
-                      setHifzFrom(
-                        value
-                      );
-
-                      if (
-                        value >
-                        hifzTo
-                      ) {
-                        setHifzTo(
-                          value
-                        );
-                      }
-                    }}
-                    className="w-full rounded-xl border border-[#E4E0D6] bg-white px-3 py-2.5 text-sm outline-none"
-                  >
-                    {Array.from(
-                      {
-                        length:
-                          selectedSurah.numberOfAyahs,
-                      },
-                      (_, i) =>
-                        i + 1
-                    ).map(
-                      (number) => (
-                        <option
-                          key={
-                            number
-                          }
-                          value={
-                            number
-                          }
-                        >
-                          Аят{" "}
-                          {number}
-                        </option>
-                      )
-                    )}
-                  </select>
-
-                </div>
-
-                <div className="pt-5 text-[#8A8474]">
-                  →
-                </div>
-
-                <div className="flex-1">
-
-                  <label className="mb-1 block text-xs text-[#8A8474]">
-                    До
-                  </label>
-
-                  <select
-                    value={hifzTo}
-                    onChange={(e) =>
-                      setHifzTo(
-                        Number(
-                          e.target.value
-                        )
-                      )
-                    }
-                    className="w-full rounded-xl border border-[#E4E0D6] bg-white px-3 py-2.5 text-sm outline-none"
-                  >
-                    {Array.from(
-                      {
-                        length:
-                          selectedSurah.numberOfAyahs -
-                          hifzFrom +
-                          1,
-                      },
-                      (_, i) =>
-                        hifzFrom + i
-                    ).map(
-                      (number) => (
-                        <option
-                          key={
-                            number
-                          }
-                          value={
-                        
+                  <span className="flex-1 text
