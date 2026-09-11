@@ -44,6 +44,12 @@ export default function Page() {
   const [checkError, setCheckError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [hifzMode, setHifzMode] = useState(true);
+  const [hifzFrom, setHifzFrom] = useState(1);
+const [hifzTo, setHifzTo] = useState(5);
+const [hifzRange, setHifzRange] = useState<{
+  from: number;
+  to: number;
+} | null>(null);
 
   const [session, setSession] = useState<SessionEntry[]>([]);
 
@@ -78,10 +84,14 @@ export default function Page() {
 
   async function openSurah(s: Surah) {
     setSelectedSurah(s);
-    setSession([]);
-    setStep("surah");
-    setAyahListLoading(true);
-    const res = await fetch(`/api/ayahs?surah=${s.number}`);
+setSession([]);
+setHifzMode(true);
+setHifzRange(null);
+setHifzFrom(1);
+setHifzTo(Math.min(5, s.numberOfAyahs));
+setStep("surah");
+setAyahListLoading(true);
+const res = await fetch(`/api/ayahs?surah=${s.number}`);
     const data = await res.json();
     setAyahList(data.ayahs ?? []);
     setAyahListLoading(false);
@@ -99,10 +109,31 @@ export default function Page() {
     setStep("recite");
   }
 
+  function startHifz() {
+  if (!selectedSurah) return;
+
+  const from = Math.max(1, Math.min(hifzFrom, selectedSurah.numberOfAyahs));
+  const to = Math.max(from, Math.min(hifzTo, selectedSurah.numberOfAyahs));
+
+  setHifzFrom(from);
+  setHifzTo(to);
+  setHifzRange({ from, to });
+  setHifzMode(true);
+  setSession([]);
+
+  openAyah(from);
+  }
+  
   function nextAyahNumber(): number | null {
-    if (!ayah || !selectedSurah) return null;
-    const next = ayah.ayah_number + 1;
-    return next <= selectedSurah.numberOfAyahs ? next : null;
+  if (!ayah || !selectedSurah) return null;
+
+  const next = ayah.ayah_number + 1;
+
+  if (hifzRange) {
+    return next <= hifzRange.to ? next : null;
+  }
+
+  return next <= selectedSurah.numberOfAyahs ? next : null;
   }
 
   async function handleRecording(blob: Blob) {
@@ -211,6 +242,77 @@ export default function Page() {
             ← Все суры
           </button>
           <h1 className="text-xl font-semibold text-[#111111]">{selectedSurah.englishName}</h1>
+          <div className="rounded-2xl border border-[#E4E0D6] bg-[#FBFAF6] p-4">
+  <div className="text-sm font-medium text-[#111111]">
+    Режим Хифз
+  </div>
+
+  <div className="mt-1 text-xs text-[#777777]">
+    Выберите диапазон аятов для запоминания
+  </div>
+
+  <div className="mt-4 flex items-center gap-2">
+    <div className="flex-1">
+      <label className="mb-1 block text-xs text-[#8A8474]">
+        От
+      </label>
+
+      <select
+        value={hifzFrom}
+        onChange={(e) => {
+          const value = Number(e.target.value);
+          setHifzFrom(value);
+
+          if (value > hifzTo) {
+            setHifzTo(value);
+          }
+        }}
+        className="w-full rounded-xl border border-[#E4E0D6] bg-white px-3 py-2.5 text-sm outline-none"
+      >
+        {Array.from(
+          { length: selectedSurah.numberOfAyahs },
+          (_, i) => i + 1
+        ).map((number) => (
+          <option key={number} value={number}>
+            Аят {number}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    <div className="pt-5 text-[#8A8474]">
+      →
+    </div>
+
+    <div className="flex-1">
+      <label className="mb-1 block text-xs text-[#8A8474]">
+        До
+      </label>
+
+      <select
+        value={hifzTo}
+        onChange={(e) => setHifzTo(Number(e.target.value))}
+        className="w-full rounded-xl border border-[#E4E0D6] bg-white px-3 py-2.5 text-sm outline-none"
+      >
+        {Array.from(
+          { length: selectedSurah.numberOfAyahs - hifzFrom + 1 },
+          (_, i) => hifzFrom + i
+        ).map((number) => (
+          <option key={number} value={number}>
+            Аят {number}
+          </option>
+        ))}
+      </select>
+    </div>
+  </div>
+
+  <button
+    onClick={startHifz}
+    className="mt-4 w-full rounded-xl bg-[#2F6F4E] py-3 text-center text-sm font-medium text-white"
+  >
+    Начать запоминание
+  </button>
+</div>
 
           <div className="space-y-2">
             {ayahList.map((a) => {
