@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import { AyahDisplay } from "@/components/AyahDisplay";
 import { RecitationRecorder } from "@/components/RecitationRecorder";
-import { SessionSummary, type SessionEntry } from "@/components/SessionSummary";
+import {
+  SessionSummary,
+  type SessionEntry,
+} from "@/components/SessionSummary";
 import type { WordResult } from "@/lib/compare-recitation";
 
 type Surah = {
@@ -13,7 +16,11 @@ type Surah = {
   numberOfAyahs: number;
 };
 
-type AyahPreview = { id: number; ayah_number: number; text_simple: string };
+type AyahPreview = {
+  id: number;
+  ayah_number: number;
+  text_simple: string;
+};
 
 type Ayah = {
   id: number;
@@ -43,24 +50,36 @@ export default function Page() {
   const [score, setScore] = useState<number | null>(null);
   const [checkError, setCheckError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+
   const [hifzMode, setHifzMode] = useState(true);
+
   const [hifzFrom, setHifzFrom] = useState(1);
-const [hifzTo, setHifzTo] = useState(5);
-const [hifzRange, setHifzRange] = useState<{
-  from: number;
-  to: number;
-} | null>(null);
+  const [hifzTo, setHifzTo] = useState(5);
+
+  const [hifzRange, setHifzRange] = useState<{
+    from: number;
+    to: number;
+  } | null>(null);
+
+  // Очередь аятов, которые нужно повторить после ошибок.
+  const [repeatQueue, setRepeatQueue] = useState<number[]>([]);
+  const [repeatIndex, setRepeatIndex] = useState(0);
 
   const [session, setSession] = useState<SessionEntry[]>([]);
 
   useEffect(() => {
     const tg = (window as any)?.Telegram?.WebApp;
     tg?.ready();
+
     const initData = tg?.initData;
+
     if (!initData) {
-      setAuthError("Открой приложение из Telegram, а не из обычного браузера.");
+      setAuthError(
+        "Открой приложение из Telegram, а не из обычного браузера."
+      );
       return;
     }
+
     fetch("/api/auth/telegram", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -75,7 +94,11 @@ const [hifzRange, setHifzRange] = useState<{
     fetch("/api/surahs")
       .then(async (r) => {
         const data = await r.json();
-        if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
+
+        if (!r.ok) {
+          throw new Error(data.error ?? `HTTP ${r.status}`);
+        }
+
         return data;
       })
       .then((data) => setSurahs(data.surahs ?? []))
@@ -84,123 +107,222 @@ const [hifzRange, setHifzRange] = useState<{
 
   async function openSurah(s: Surah) {
     setSelectedSurah(s);
-setSession([]);
-setHifzMode(true);
-setHifzRange(null);
-setHifzFrom(1);
-setHifzTo(Math.min(5, s.numberOfAyahs));
-setStep("surah");
-setAyahListLoading(true);
-const res = await fetch(`/api/ayahs?surah=${s.number}`);
+    setSession([]);
+
+    setHifzMode(true);
+    setHifzRange(null);
+
+    setHifzFrom(1);
+    setHifzTo(Math.min(5, s.numberOfAyahs));
+
+    setRepeatQueue([]);
+    setRepeatIndex(0);
+
+    setStep("surah");
+    setAyahListLoading(true);
+
+    const res = await fetch(`/api/ayahs?surah=${s.number}`);
     const data = await res.json();
+
     setAyahList(data.ayahs ?? []);
     setAyahListLoading(false);
   }
 
   async function openAyah(ayahNumber: number) {
     if (!selectedSurah) return;
+
     setResults(undefined);
     setScore(null);
     setCheckError(null);
-    const res = await fetch(`/api/ayahs?surah=${selectedSurah.number}&ayah=${ayahNumber}`);
+
+    const res = await fetch(
+      `/api/ayahs?surah=${selectedSurah.number}&ayah=${ayahNumber}`
+    );
+
     const data = await res.json();
+
     if (!res.ok) return;
+
     setAyah(data.ayah);
     setStep("recite");
   }
 
   function startHifz() {
-  if (!selectedSurah) return;
+    if (!selectedSurah) return;
 
-  const from = Math.max(1, Math.min(hifzFrom, selectedSurah.numberOfAyahs));
-  const to = Math.max(from, Math.min(hifzTo, selectedSurah.numberOfAyahs));
+    const from = Math.max(
+      1,
+      Math.min(hifzFrom, selectedSurah.numberOfAyahs)
+    );
 
-  setHifzFrom(from);
-  setHifzTo(to);
-  setHifzRange({ from, to });
-  setHifzMode(true);
-  setSession([]);
+    const to = Math.max(
+      from,
+      Math.min(hifzTo, selectedSurah.numberOfAyahs)
+    );
 
-  openAyah(from);
+    setHifzFrom(from);
+    setHifzTo(to);
+
+    setHifzRange({
+      from,
+      to,
+    });
+
+    setRepeatQueue([]);
+    setRepeatIndex(0);
+
+    setHifzMode(true);
+    setSession([]);
+
+    openAyah(from);
   }
-  
+
+  function startErrorReview(ayahNumbers: number[]) {
+    if (ayahNumbers.length === 0) return;
+
+    const queue = [...new Set(ayahNumbers)].sort(
+      (a, b) => a - b
+    );
+
+    setRepeatQueue(queue);
+    setRepeatIndex(0);
+
+    setHifzRange(null);
+    setHifzMode(true);
+    setSession([]);
+
+    openAyah(queue[0]);
+  }
+
   function nextAyahNumber(): number | null {
-  if (!ayah || !selectedSurah) return null;
+    if (!ayah || !selectedSurah) return null;
 
-  const next = ayah.ayah_number + 1;
+    // Если сейчас повторяем ошибки.
+    if (repeatQueue.length > 0) {
+      const nextIndex = repeatIndex + 1;
 
-  if (hifzRange) {
-    return next <= hifzRange.to ? next : null;
+      if (nextIndex < repeatQueue.length) {
+        return repeatQueue[nextIndex];
+      }
+
+      return null;
+    }
+
+    const next = ayah.ayah_number + 1;
+
+    // Обычный режим Хифза с выбранным диапазоном.
+    if (hifzRange) {
+      return next <= hifzRange.to ? next : null;
+    }
+
+    // Обычный режим чтения.
+    return next <= selectedSurah.numberOfAyahs
+      ? next
+      : null;
   }
 
-  return next <= selectedSurah.numberOfAyahs ? next : null;
+  async function handleNextAyah() {
+    const next = nextAyahNumber();
+
+    if (next === null) {
+      setStep("summary");
+      return;
+    }
+
+    if (repeatQueue.length > 0) {
+      setRepeatIndex((prev) => prev + 1);
+    }
+
+    await openAyah(next);
   }
 
   async function handleRecording(blob: Blob) {
     if (!userId || !ayah) return;
+
     setChecking(true);
+
     const form = new FormData();
+
     form.append("audio", blob);
     form.append("userId", userId);
     form.append("ayahId", String(ayah.id));
 
-    const res = await fetch("/api/recite/check", { method: "POST", body: form });
+    const res = await fetch("/api/recite/check", {
+      method: "POST",
+      body: form,
+    });
+
     const data = await res.json();
+
     setChecking(false);
+
     if (!res.ok) {
-      setCheckError(`Ошибка проверки: ${data.error ?? "неизвестная"}`);
+      setCheckError(
+        `Ошибка проверки: ${data.error ?? "неизвестная"}`
+      );
       return;
     }
+
     setCheckError(null);
     setResults(data.results);
     setScore(data.score);
+
     setSession((prev) => {
-  const withoutThis = prev.filter(
-    (e) => e.ayahNumber !== ayah.ayah_number
-  );
+      const withoutThis = prev.filter(
+        (e) => e.ayahNumber !== ayah.ayah_number
+      );
 
-  const correctWords = (data.results ?? []).filter(
-    (r: WordResult) => r.status === "ok"
-  ).length;
+      const correctWords = (data.results ?? []).filter(
+        (r: WordResult) => r.status === "ok"
+      ).length;
 
-  const mismatchWords = (data.results ?? []).filter(
-    (r: WordResult) => r.status === "mismatch"
-  ).length;
+      const mismatchWords = (data.results ?? []).filter(
+        (r: WordResult) => r.status === "mismatch"
+      ).length;
 
-  const missingWords = (data.results ?? []).filter(
-    (r: WordResult) => r.status === "missing"
-  ).length;
+      const missingWords = (data.results ?? []).filter(
+        (r: WordResult) => r.status === "missing"
+      ).length;
 
-  return [
-    ...withoutThis,
-    {
-      ayahNumber: ayah.ayah_number,
-      score: data.score,
-      correctWords,
-      mismatchWords,
-      missingWords,
-    },
-  ];
-});
+      return [
+        ...withoutThis,
+        {
+          ayahNumber: ayah.ayah_number,
+          score: data.score,
+          correctWords,
+          mismatchWords,
+          missingWords,
+        },
+      ];
+    });
   }
 
   const filteredSurahs = surahs.filter(
     (s) =>
-      s.englishName.toLowerCase().includes(search.toLowerCase()) ||
+      s.englishName
+        .toLowerCase()
+        .includes(search.toLowerCase()) ||
       String(s.number).includes(search)
   );
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col p-6">
       {authError && (
-        <p className="mb-4 text-center text-sm text-[#B5502B]">{authError}</p>
+        <p className="mb-4 text-center text-sm text-[#B5502B]">
+          {authError}
+        </p>
       )}
 
       {step === "home" && (
         <div className="space-y-5">
           <div>
-            <h1 className="text-2xl font-semibold text-[#111111]">Hifzly</h1>
-            <p className="mt-1 text-sm text-[#777777]">Читай, а система проверит за тебя</p>
+            <h1 className="text-2xl font-semibold text-[#111111]">
+              Hifzly
+            </h1>
+
+            <p className="mt-1 text-sm text-[#777777]">
+              Читай, а система проверит за тебя
+            </p>
           </div>
 
           <input
@@ -220,13 +342,23 @@ const res = await fetch(`/api/ayahs?surah=${s.number}`);
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EFEBDD] text-xs text-[#777777]">
                   {s.number}
                 </span>
-                <span className="flex-1 text-sm text-[#111111]">{s.englishName}</span>
-                <span className="text-xs text-[#8A8474]">{s.numberOfAyahs} аятов</span>
+
+                <span className="flex-1 text-sm text-[#111111]">
+                  {s.englishName}
+                </span>
+
+                <span className="text-xs text-[#8A8474]">
+                  {s.numberOfAyahs} аятов
+                </span>
               </button>
             ))}
+
             {surahs.length === 0 && !surahsError && (
-              <p className="text-center text-sm text-[#777777]">Загружаю список сур...</p>
+              <p className="text-center text-sm text-[#777777]">
+                Загружаю список сур...
+              </p>
             )}
+
             {surahsError && (
               <p className="text-center text-sm text-[#B5502B]">
                 Не удалось загрузить список: {surahsError}
@@ -238,85 +370,105 @@ const res = await fetch(`/api/ayahs?surah=${s.number}`);
 
       {step === "surah" && selectedSurah && (
         <div className="space-y-4">
-          <button onClick={() => setStep("home")} className="text-sm text-[#777777]">
+          <button
+            onClick={() => setStep("home")}
+            className="text-sm text-[#777777]"
+          >
             ← Все суры
           </button>
-          <h1 className="text-xl font-semibold text-[#111111]">{selectedSurah.englishName}</h1>
+
+          <h1 className="text-xl font-semibold text-[#111111]">
+            {selectedSurah.englishName}
+          </h1>
+
           <div className="rounded-2xl border border-[#E4E0D6] bg-[#FBFAF6] p-4">
-  <div className="text-sm font-medium text-[#111111]">
-    Режим Хифз
-  </div>
+            <div className="text-sm font-medium text-[#111111]">
+              Режим Хифз
+            </div>
 
-  <div className="mt-1 text-xs text-[#777777]">
-    Выберите диапазон аятов для запоминания
-  </div>
+            <div className="mt-1 text-xs text-[#777777]">
+              Выберите диапазон аятов для запоминания
+            </div>
 
-  <div className="mt-4 flex items-center gap-2">
-    <div className="flex-1">
-      <label className="mb-1 block text-xs text-[#8A8474]">
-        От
-      </label>
+            <div className="mt-4 flex items-center gap-2">
+              <div className="flex-1">
+                <label className="mb-1 block text-xs text-[#8A8474]">
+                  От
+                </label>
 
-      <select
-        value={hifzFrom}
-        onChange={(e) => {
-          const value = Number(e.target.value);
-          setHifzFrom(value);
+                <select
+                  value={hifzFrom}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
 
-          if (value > hifzTo) {
-            setHifzTo(value);
-          }
-        }}
-        className="w-full rounded-xl border border-[#E4E0D6] bg-white px-3 py-2.5 text-sm outline-none"
-      >
-        {Array.from(
-          { length: selectedSurah.numberOfAyahs },
-          (_, i) => i + 1
-        ).map((number) => (
-          <option key={number} value={number}>
-            Аят {number}
-          </option>
-        ))}
-      </select>
-    </div>
+                    setHifzFrom(value);
 
-    <div className="pt-5 text-[#8A8474]">
-      →
-    </div>
+                    if (value > hifzTo) {
+                      setHifzTo(value);
+                    }
+                  }}
+                  className="w-full rounded-xl border border-[#E4E0D6] bg-white px-3 py-2.5 text-sm outline-none"
+                >
+                  {Array.from(
+                    {
+                      length: selectedSurah.numberOfAyahs,
+                    },
+                    (_, i) => i + 1
+                  ).map((number) => (
+                    <option key={number} value={number}>
+                      Аят {number}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-    <div className="flex-1">
-      <label className="mb-1 block text-xs text-[#8A8474]">
-        До
-      </label>
+              <div className="pt-5 text-[#8A8474]">
+                →
+              </div>
 
-      <select
-        value={hifzTo}
-        onChange={(e) => setHifzTo(Number(e.target.value))}
-        className="w-full rounded-xl border border-[#E4E0D6] bg-white px-3 py-2.5 text-sm outline-none"
-      >
-        {Array.from(
-          { length: selectedSurah.numberOfAyahs - hifzFrom + 1 },
-          (_, i) => hifzFrom + i
-        ).map((number) => (
-          <option key={number} value={number}>
-            Аят {number}
-          </option>
-        ))}
-      </select>
-    </div>
-  </div>
+              <div className="flex-1">
+                <label className="mb-1 block text-xs text-[#8A8474]">
+                  До
+                </label>
 
-  <button
-    onClick={startHifz}
-    className="mt-4 w-full rounded-xl bg-[#2F6F4E] py-3 text-center text-sm font-medium text-white"
-  >
-    Начать запоминание
-  </button>
-</div>
+                <select
+                  value={hifzTo}
+                  onChange={(e) =>
+                    setHifzTo(Number(e.target.value))
+                  }
+                  className="w-full rounded-xl border border-[#E4E0D6] bg-white px-3 py-2.5 text-sm outline-none"
+                >
+                  {Array.from(
+                    {
+                      length:
+                        selectedSurah.numberOfAyahs -
+                        hifzFrom +
+                        1,
+                    },
+                    (_, i) => hifzFrom + i
+                  ).map((number) => (
+                    <option key={number} value={number}>
+                      Аят {number}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <button
+              onClick={startHifz}
+              className="mt-4 w-full rounded-xl bg-[#2F6F4E] py-3 text-center text-sm font-medium text-white"
+            >
+              Начать запоминание
+            </button>
+          </div>
 
           <div className="space-y-2">
             {ayahList.map((a) => {
-              const done = session.find((e) => e.ayahNumber === a.ayah_number);
+              const done = session.find(
+                (e) => e.ayahNumber === a.ayah_number
+              );
+
               return (
                 <button
                   key={a.id}
@@ -326,15 +478,20 @@ const res = await fetch(`/api/ayahs?surah=${s.number}`);
                   <span
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs"
                     style={{
-                      background: done ? "#2F6F4E" : "#EFEBDD",
+                      background: done
+                        ? "#2F6F4E"
+                        : "#EFEBDD",
                       color: done ? "white" : "#777777",
                     }}
                   >
                     {a.ayah_number}
                   </span>
+
                   <span
                     dir="rtl"
-                    style={{ fontFamily: "'Amiri', serif" }}
+                    style={{
+                      fontFamily: "'Amiri', serif",
+                    }}
                     className="flex-1 truncate text-right text-lg"
                   >
                     {a.text_simple}
@@ -342,8 +499,11 @@ const res = await fetch(`/api/ayahs?surah=${s.number}`);
                 </button>
               );
             })}
+
             {ayahListLoading && (
-              <p className="text-center text-sm text-[#777777]">Загружаю аяты...</p>
+              <p className="text-center text-sm text-[#777777]">
+                Загружаю аяты...
+              </p>
             )}
           </div>
 
@@ -358,83 +518,109 @@ const res = await fetch(`/api/ayahs?surah=${s.number}`);
         </div>
       )}
 
-      {step === "recite" && ayah && selectedSurah && (
-        <div className="flex flex-1 flex-col justify-between space-y-6">
-          <div className="space-y-6">
-            <div className="flex items-center justify-between rounded-2xl border border-[#E4E0D6] bg-[#FBFAF6] px-4 py-3">
-  <div>
-    <div className="text-sm font-medium text-[#111111]">
-      Режим запоминания
-    </div>
-    <div className="mt-1 text-xs text-[#777777]">
-      {hifzMode
-        ? "Текст скрыт — читайте по памяти"
-        : "Текст аята отображается"}
-    </div>
-  </div>
+      {step === "recite" &&
+        ayah &&
+        selectedSurah && (
+          <div className="flex flex-1 flex-col justify-between space-y-6">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between rounded-2xl border border-[#E4E0D6] bg-[#FBFAF6] px-4 py-3">
+                <div>
+                  <div className="text-sm font-medium text-[#111111]">
+                    Режим запоминания
+                  </div>
 
-  <button
-    onClick={() => setHifzMode((prev) => !prev)}
-    className={`relative h-7 w-12 rounded-full transition-colors ${
-      hifzMode ? "bg-[#2F6F4E]" : "bg-[#D9D2BE]"
-    }`}
-    aria-label="Переключить режим запоминания"
-  >
-    <span
-      className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-        hifzMode ? "translate-x-6" : "translate-x-1"
-      }`}
-    />
-  </button>
-</div>
-            <button onClick={() => setStep("surah")} className="text-sm text-[#777777]">
-              ← К списку аятов
-            </button>
-            <AyahDisplay
-             surahNumber={ayah.surah_number}
-             surahName={selectedSurah.englishName}
-             ayahNumber={ayah.ayah_number}
-             arabicText={ayah.text_simple}
-             results={results}
-             hidden={hifzMode && results === undefined}
-            />
-            {checking && (
-              <p className="text-center text-sm text-[#777777]">Проверяю...</p>
-            )}
-            {score !== null && !checking && (
-              <p className="text-center text-sm text-[#777777]">
-                Точность: {Math.round(score * 100)}%
-              </p>
-            )}
-            {checkError && (
-              <p className="text-center text-sm text-[#B5502B]">{checkError}</p>
-            )}
-          </div>
+                  <div className="mt-1 text-xs text-[#777777]">
+                    {hifzMode
+                      ? "Текст скрыт — читайте по памяти"
+                      : "Текст аята отображается"}
+                  </div>
+                </div>
 
-          <div className="space-y-4 pb-8">
-            <RecitationRecorder onResult={handleRecording} />
-            {score !== null && !checking && (
-              <div className="flex gap-3">
-                {nextAyahNumber() !== null ? (
-                  <button
-                    onClick={() => openAyah(nextAyahNumber()!)}
-                    className="flex-1 rounded-xl bg-[#2F6F4E] py-3 text-center text-sm text-white"
-                  >
-                    Следующий аят →
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setStep("summary")}
-                    className="flex-1 rounded-xl bg-[#2F6F4E] py-3 text-center text-sm text-white"
-                  >
-                    Завершить суру
-                  </button>
-                )}
+                <button
+                  onClick={() =>
+                    setHifzMode((prev) => !prev)
+                  }
+                  className={`relative h-7 w-12 rounded-full transition-colors ${
+                    hifzMode
+                      ? "bg-[#2F6F4E]"
+                      : "bg-[#D9D2BE]"
+                  }`}
+                  aria-label="Переключить режим запоминания"
+                >
+                  <span
+                    className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                      hifzMode
+                        ? "translate-x-6"
+                        : "translate-x-1"
+                    }`}
+                  />
+                </button>
               </div>
-            )}
+
+              <button
+                onClick={() => setStep("surah")}
+                className="text-sm text-[#777777]"
+              >
+                ← К списку аятов
+              </button>
+
+              <AyahDisplay
+                surahNumber={ayah.surah_number}
+                surahName={selectedSurah.englishName}
+                ayahNumber={ayah.ayah_number}
+                arabicText={ayah.text_simple}
+                results={results}
+                hidden={
+                  hifzMode && results === undefined
+                }
+              />
+
+              {checking && (
+                <p className="text-center text-sm text-[#777777]">
+                  Проверяю...
+                </p>
+              )}
+
+              {score !== null && !checking && (
+                <p className="text-center text-sm text-[#777777]">
+                  Точность: {Math.round(score * 100)}%
+                </p>
+              )}
+
+              {checkError && (
+                <p className="text-center text-sm text-[#B5502B]">
+                  {checkError}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-4 pb-8">
+              <RecitationRecorder
+                onResult={handleRecording}
+              />
+
+              {score !== null && !checking && (
+                <div className="flex gap-3">
+                  {nextAyahNumber() !== null ? (
+                    <button
+                      onClick={handleNextAyah}
+                      className="flex-1 rounded-xl bg-[#2F6F4E] py-3 text-center text-sm text-white"
+                    >
+                      Следующий аят →
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setStep("summary")}
+                      className="flex-1 rounded-xl bg-[#2F6F4E] py-3 text-center text-sm text-white"
+                    >
+                      Завершить
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {step === "summary" && selectedSurah && (
         <SessionSummary
@@ -442,8 +628,11 @@ const res = await fetch(`/api/ayahs?surah=${s.number}`);
           entries={session}
           onRestart={() => openSurah(selectedSurah)}
           onHome={() => setStep("home")}
+          onRepeatErrors={(ayahNumbers) =>
+            startErrorReview(ayahNumbers)
+          }
         />
       )}
     </main>
   );
-}
+                                }
