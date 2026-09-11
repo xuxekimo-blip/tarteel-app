@@ -123,9 +123,33 @@ export default function Page() {
     setResults(data.results);
     setScore(data.score);
     setSession((prev) => {
-      const withoutThis = prev.filter((e) => e.ayahNumber !== ayah.ayah_number);
-      return [...withoutThis, { ayahNumber: ayah.ayah_number, score: data.score }];
-    });
+  const withoutThis = prev.filter(
+    (e) => e.ayahNumber !== ayah.ayah_number
+  );
+
+  const correctWords = (data.results ?? []).filter(
+    (r: WordResult) => r.status === "ok"
+  ).length;
+
+  const mismatchWords = (data.results ?? []).filter(
+    (r: WordResult) => r.status === "mismatch"
+  ).length;
+
+  const missingWords = (data.results ?? []).filter(
+    (r: WordResult) => r.status === "missing"
+  ).length;
+
+  return [
+    ...withoutThis,
+    {
+      ayahNumber: ayah.ayah_number,
+      score: data.score,
+      correctWords,
+      mismatchWords,
+      missingWords,
+    },
+  ];
+});
   }
 
   const filteredSurahs = surahs.filter(
