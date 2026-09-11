@@ -4,11 +4,13 @@ import type { WordResult } from "@/lib/compare-recitation";
 
 export function AyahDisplay({
   surahNumber,
+  surahName,
   ayahNumber,
   arabicText,
   results,
 }: {
   surahNumber: number;
+  surahName: string;
   ayahNumber: number;
   arabicText: string;
   results?: WordResult[];
@@ -21,8 +23,11 @@ export function AyahDisplay({
         <span className="flex h-6 w-6 items-center justify-center rounded-full border border-[#D9D2BE] text-[10px]">
           {ayahNumber}
         </span>
-        Сура {surahNumber}
+        <span>
+          {surahName} • Аят {ayahNumber}
+        </span>
       </div>
+
       <p
         dir="rtl"
         style={{ fontFamily: "'Amiri', serif" }}
@@ -30,6 +35,7 @@ export function AyahDisplay({
       >
         {words.map((w, i) => {
           const r = results?.find((res) => res.index === i);
+
           const color =
             r?.status === "ok"
               ? "#2F6F4E"
@@ -38,6 +44,7 @@ export function AyahDisplay({
               : r?.status === "missing"
               ? "#A3A3A3"
               : "inherit";
+
           return (
             <span key={i} style={{ color }} className="mx-1">
               {w}
