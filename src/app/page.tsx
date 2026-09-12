@@ -575,25 +575,313 @@ export default function Page() {
               setSearch(e.target.value)
             }
             placeholder="Найти суру..."
-            className="w-full rounded-xl border border-[#E4E0D6] bg-[#FBFAF6] px-4 py-3 text-sm outline-none"
-          />
+            className="w-full rounded-xl border border-[#E4E0D6] bg-white px-3 py-2.5 text-sm outline-none"
+                  >
+                    {Array.from(
+                      {
+                        length:
+                          selectedSurah.numberOfAyahs -
+                          hifzFrom +
+                          1,
+                      },
+                      (_, i) => hifzFrom + i
+                    ).map(
+                      (number) => (
+                        <option
+                          key={number}
+                          value={number}
+                        >
+                          Аят {number}
+                        </option>
+                      )
+                    )}
+                  </select>
 
-          {/* SURAHS */}
+                </div>
 
-          <div className="space-y-1">
+              </div>
 
-            {filteredSurahs.map(
-              (s) => (
+              <button
+                onClick={startHifz}
+                className="mt-4 w-full rounded-xl bg-[#2F6F4E] py-3 text-center text-sm font-medium text-white"
+              >
+                Начать запоминание
+              </button>
+
+            </div>
+
+            {/* AYAH LIST */}
+
+            <div className="space-y-2">
+
+              {ayahList.map(
+                (a) => {
+                  const done =
+                    session.find(
+                      (e) =>
+                        e.ayahNumber ===
+                        a.ayah_number
+                    );
+
+                  return (
+                    <button
+                      key={a.id}
+                      onClick={() =>
+                        openAyah(
+                          a.ayah_number
+                        )
+                      }
+                      className="flex w-full items-start gap-3 rounded-xl border border-[#E4E0D6] bg-[#FBFAF6] px-4 py-3 text-left"
+                    >
+
+                      <span
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs"
+                        style={{
+                          background:
+                            done
+                              ? "#2F6F4E"
+                              : "#EFEBDD",
+
+                          color:
+                            done
+                              ? "white"
+                              : "#777777",
+                        }}
+                      >
+                        {
+                          a.ayah_number
+                        }
+                      </span>
+
+                      <span
+                        dir="rtl"
+                        style={{
+                          fontFamily:
+                            "'Amiri', serif",
+                        }}
+                        className="flex-1 truncate text-right text-lg"
+                      >
+                        {
+                          a.text_simple
+                        }
+                      </span>
+
+                    </button>
+                  );
+                }
+              )}
+
+              {ayahListLoading && (
+                <p className="text-center text-sm text-[#777777]">
+                  Загружаю аяты...
+                </p>
+              )}
+
+            </div>
+
+            {session.length >
+              0 && (
+              <button
+                onClick={() =>
+                  setStep(
+                    "summary"
+                  )
+                }
+                className="w-full rounded-xl bg-[#2F6F4E] py-3 text-center text-sm text-white"
+              >
+                Завершить сессию (
+                {session.length})
+              </button>
+            )}
+
+          </div>
+        )}
+
+      {/* =========================
+          RECITE
+      ========================= */}
+
+      {step === "recite" &&
+        ayah &&
+        selectedSurah && (
+          <div className="flex flex-1 flex-col justify-between space-y-6">
+
+            <div className="space-y-6">
+
+              <div className="flex items-center justify-between rounded-2xl border border-[#E4E0D6] bg-[#FBFAF6] px-4 py-3">
+
+                <div>
+
+                  <div className="text-sm font-medium text-[#111111]">
+                    Режим запоминания
+                  </div>
+
+                  <div className="mt-1 text-xs text-[#777777]">
+                    {hifzMode
+                      ? "Текст скрыт — читайте по памяти"
+                      : "Текст аята отображается"}
+                  </div>
+
+                </div>
+
                 <button
-                  key={s.number}
                   onClick={() =>
-                    openSurah(s)
+                    setHifzMode(
+                      (prev) =>
+                        !prev
+                    )
                   }
-                  className="flex w-full items-center gap-3 rounded-xl border border-[#E4E0D6] bg-[#FBFAF6] px-4 py-3 text-left"
+                  className={`relative h-7 w-12 rounded-full transition-colors ${
+                    hifzMode
+                      ? "bg-[#2F6F4E]"
+                      : "bg-[#D9D2BE]"
+                  }`}
+                  aria-label="Переключить режим запоминания"
                 >
 
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EFEBDD] text-xs text-[#777777]">
-                    {s.number}
-                  </span>
+                  <span
+                    className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                      hifzMode
+                        ? "translate-x-6"
+                        : "translate-x-1"
+                    }`}
+                  />
 
-                  <span className="flex-1 text
+                </button>
+
+              </div>
+
+              <button
+                onClick={() =>
+                  setStep("surah")
+                }
+                className="text-sm text-[#777777]"
+              >
+                ← К списку аятов
+              </button>
+
+              <AyahDisplay
+                surahNumber={
+                  ayah.surah_number
+                }
+                surahName={
+                  selectedSurah.englishName
+                }
+                ayahNumber={
+                  ayah.ayah_number
+                }
+                arabicText={
+                  ayah.text_simple
+                }
+                results={
+                  results
+                }
+                hidden={
+                  hifzMode &&
+                  results ===
+                    undefined
+                }
+              />
+
+              {checking && (
+                <p className="text-center text-sm text-[#777777]">
+                  Проверяю...
+                </p>
+              )}
+
+              {score !== null &&
+                !checking && (
+                  <p className="text-center text-sm text-[#777777]">
+                    Точность:{" "}
+                    {Math.round(
+                      score * 100
+                    )}
+                    %
+                  </p>
+                )}
+
+              {checkError && (
+                <p className="text-center text-sm text-[#B5502B]">
+                  {checkError}
+                </p>
+              )}
+
+            </div>
+
+            <div className="space-y-4 pb-8">
+
+              <RecitationRecorder
+                onResult={
+                  handleRecording
+                }
+              />
+
+              {score !== null &&
+                !checking && (
+                  <div className="flex gap-3">
+
+                    {nextAyahNumber() !==
+                    null ? (
+                      <button
+                        onClick={
+                          handleNextAyah
+                        }
+                        className="flex-1 rounded-xl bg-[#2F6F4E] py-3 text-center text-sm text-white"
+                      >
+                        Следующий аят →
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() =>
+                          setStep(
+                            "summary"
+                          )
+                        }
+                        className="flex-1 rounded-xl bg-[#2F6F4E] py-3 text-center text-sm text-white"
+                      >
+                        Завершить
+                      </button>
+                    )}
+
+                  </div>
+                )}
+
+            </div>
+
+          </div>
+        )}
+
+      {/* =========================
+          SUMMARY
+      ========================= */}
+
+      {step === "summary" &&
+        selectedSurah && (
+          <SessionSummary
+            surahName={
+              selectedSurah.englishName
+            }
+            entries={
+              session
+            }
+            onRestart={() =>
+              openSurah(
+                selectedSurah
+              )
+            }
+            onHome={() =>
+              setStep("home")
+            }
+            onRepeatErrors={(
+              ayahNumbers
+            ) =>
+              startErrorReview(
+                ayahNumbers
+              )
+            }
+          />
+        )}
+
+    </main>
+  );
+}
